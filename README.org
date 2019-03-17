@@ -1,0 +1,132 @@
+* ns-playgrounds - Org-Babel Support for Apple Languages
+
+** Overview
+   ns-playgrounds adds Org-Babel support for two of the most popular
+   languages used on Apple platforms: Swift and Objective C. It
+   supports the execution of code snippets, and adds some interesting
+   features like toolchain selection, or support for direct debugging
+   of a compiler with a code snippet, all of that without leaving
+   Emacs.
+
+** Why?
+   Programmers usually want to test small code snippets of Swift or
+   Objective C code, possibly using a custom toolchain. There are many
+   alternatives out there:
+
+   - Xcode Playgrounds: This program is installed by default with
+     Xcode, and it's a good start for doing literate programming, but
+     in my opinion it has two disadvantages: It's only available for
+     macOS and you can only execute Swift code.
+   - Command line tools: You can invoke the compiler and related tools
+     from the command line using a test file. This is a cross-platform
+     solution, but it's a little bit incovenient because you need to
+     switch context from the code you write to its result.
+
+** What I Think a Swift Playground Should Offer
+
+   In my opinion, Xcode Playgrounds are a great tool to learn or
+   understand Swift and to create something similar to a literate
+   program, but the current implementation falls short in two aspects:
+
+   - Poor support for beginners: There's no documentation about error
+     messages or Swift syntactic constructs or attributes that are
+     difficult to Google. Newcomers to a language should be able to
+     see detailed documentation without leaving their editor/IDE.
+   - Poor support for advanced use cases: This is a result of the
+     closed source nature of Xcode Playgrounds, and the fact that it's
+     not extensible. We can try to solve that in Emacs.
+
+** Install and Configuration
+
+   Simply download ns-playgrounds and load it when you deem
+   appropriate:
+
+#+BEGIN_SRC emacs-lisp
+   (require 'ns-playgrounds)
+#+END_SRC
+
+** Features
+
+*** Execution of Swift code
+
+You can execute Swift code very easily, just like you would execute
+code in any other language with org-babel:
+
+[[file:examples/SwiftDefault.png]]
+
+You can set the `:toolchain` parameter in order to execute the program
+using a particular Swift toolchain. For example, you can execute code
+with the "swift-4.2-DEVELOPMENT-SNAPSHOT-2018-10-30-a" toolchain to
+check that Swift raw strings were not available yet in Swift 4.2:
+
+[[file:examples/SwiftError.png]]
+
+If you don't set a `:toolchain` parameter, `ns-playgrounds` will
+execute your code with the default toolchain. You can configure it to
+ask you for the Swift toolchain by setting a variable:
+
+#+BEGIN_SRC emacs-lisp
+(setq ob-swift-prompt-if-no-toolchain t)
+#+END_SRC
+
+[[file:examples/SwiftToolchain.png]]
+
+Regarding compile errors, ns-playgrounds offers an experimental
+feature to automatically debug a Swift compiler using your code
+snippet:
+
+*** Debugging a Swift compiler using a code snippet (Experimental)
+
+For this feature to work you need to install [[https://github.com/emacs-lsp/dap-mode][dap-mode]], a package that
+offers support for the [[https://code.visualstudio.com/api/extension-guides/debugger-extension][Debug Adapter Protocol]] in Emacs so that you can
+debug an application without leaving the text editor.
+
+After that, compile the LLDB debug adapter from the LLVM
+project. Unfortunately, for now that involves compiling LLDB from
+sources. Follow the instructions here:
+https://github.com/llvm-mirror/lldb/tree/master/tools/lldb-vscode#installation-for-visual-studio-code
+
+You also need to compile a debug+assert version of the Swift compiler
+and keep its source files around. There's detailed instructions on how
+to do that [[https://github.com/apple/swift][at the Swift repository website]].
+
+Finally, you need to configure ns-playgrounds so that the path to this
+debug+assert Swift compiler is known. For example:
+
+#+BEGIN_SRC emacs-lisp
+  (setq ob-swift-debug-compiler-path "~/Projects/swift-source/swift/build/Ninja-RelWithDebInfoAssert+swift-DebugAssert/swift-macosx-x86_64/bin/swift")
+#+END_SRC
+
+Note that we plan to simplify this configuration possibly by working
+upstream to provide premade packages of the LLDB debug adapter.
+
+When all these prerequisites are met, you can add a `:x-ray-this`
+parameter to a Swift code snippet and evaluate it. This will launch
+and attach the LLDB debugger to the debug Swift compiler, which will
+be prepared to assert at the first diagnostic message that is emitted.
+
+Here's an example of a compile error about an optional that is not
+unwrapped, with the debugger stopped at the related part of Sema:
+
+[[file:examples/SwiftXRay.png]]
+
+If you have lsp-mode configured and the Swift project is indexed, you
+can navigate through the Swift codebase at this point.
+
+You can also use the commands from dap-mode to switch stack frames,
+show local variables, etc.
+
+*** Execution of Objective C Code
+
+Objective C support is also available. For now, only basic compilation
+flags are supported:
+
+[[file:examples/ObjC.png]]
+
+** Future Work
+
+- Add sessions support.
+- Add support for passing arbitrary compiler arguments.
+- Minor mode for documenting keywords, diagnostic messages, etc.
+- Integrate lsp-mode.
+- UIKit support.
