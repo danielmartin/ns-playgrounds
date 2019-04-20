@@ -170,8 +170,8 @@ language enthusiasts that want to understand Swift better."
         (x-ray-this? (assoc :x-ray-this params)))
     (when (and (not (eq system-type 'darwin)) toolchain)
       (user-error "The :toolchain flag is only supported on macOS systems."))
-    (when (or (not (featurep 'dap-mode))
-              (not (featurep 'dap-lldb)))
+    (when (and x-ray-this? (or (not (featurep 'dap-mode))
+                               (not (featurep 'dap-lldb))))
       (user-error "You need to load `dap-mode' and `dap-lldb' for the x-ray-this feature to work."))
     (ob-swift--eval body toolchain x-ray-this?)))
 
