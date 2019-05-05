@@ -152,6 +152,48 @@ at the first encountered error."
         (ob-swift--x-ray-this body (expand-file-name compiler-path) dap-server-path))
     (ob-swift--toolchain-eval body toolchain)))
 
+;; Session support
+(defvar ob-swift-process-output "")
+
+(defvar ob-swift-session-sentinel "ob-swift-session-sentinel")
+
+(defun ob-swift--process-filter (process output)
+  "Store PROCESS OUTPUT in `ob-swift-process-output'."
+  (setq ob-swift-process-output (concat ob-swift-process-output output)))
+
+(defun ob-swift--wait (pattern)
+  "Wait for a PATTERN to appear in `ob-swift-process-output'."
+  (while (not (string-match-p pattern ob-swift-process-output))
+    (sit-for 0.5)))
+
+(defun ob-swift--prepare-session (session)
+  "Prepare a REPL SESSION where Swift source blocks can be executed."
+  (let ((name (format "*ob-swift-%s*" session)))
+    (unless (and (get-process name)
+                 (process-live-p (get-process name)))
+      (let ((process (with-current-buffer (get-buffer-create name)
+                       (start-process name name "swift"))))
+        (set-process-filter process 'ob-swift--process-filter)
+        (ob-swift--wait "Welcome to Apple Swift")))))
+
+(defun ob-swift--eval-in-repl (session body)
+  "Evaluate BODY in a Swift SESSION.
+
+This function filters the REPL output to not include our session
+initializer sentinel, type information, etc."
+  (let ((name (format "*ob-swift-%s*" session)))
+    (setq ob-swift-process-output "")
+    (process-send-string name (format "%s\n\"%s\"\n" body ob-swift-session-sentinel))
+    (accept-process-output (get-process name) nil nil 1)
+    (ob-swift--wait ob-swift-session-sentinel)
+    (replace-regexp-in-string
+     (format "^\\$R[0-9]+: String = \"%s\"\n" ob-swift-session-sentinel) ""
+     (replace-regexp-in-string
+      "^\\([0-9]+\\. \\)+\\([0-9]+> \\)*" ""
+      (replace-regexp-in-string
+       "^\\([0-9]+> \\)+" ""
+       ob-swift-process-output)))))
+
 ;; Main entry point
 (defun org-babel-execute:swift (body params)
   "Executes Swift code in BODY, given some PARAMS.
@@ -162,18 +204,27 @@ This is the list of supported PARAMS:
 code snippet, for example: 'swift-4.2-DEVELOPMENT-SNAPSHOT-2018-10-30-a'.
 Only applicable to macOS systems.
 
+:session - Optional. Specifies a session name so that different
+source blocks can reuse the same Swift execution environment (in
+this case, REPL).
+
 :x-ray-this - Optional. Instead of executing the code, Org-babel
 will attach LLDB to a debug Swift binary and break at the first
 diagnostic error. Useful for compiler writers or programming
 language enthusiasts that want to understand Swift better."
   (let ((toolchain (cdr (assoc :toolchain params)))
-        (x-ray-this? (assoc :x-ray-this params)))
+        (x-ray-this? (assoc :x-ray-this params))
+        (session (cdr (assoc :session params))))
     (when (and (not (eq system-type 'darwin)) toolchain)
       (user-error "The :toolchain flag is only supported on macOS systems."))
     (when (and x-ray-this? (or (not (featurep 'dap-mode))
                                (not (featurep 'dap-lldb))))
       (user-error "You need to load `dap-mode' and `dap-lldb' for the x-ray-this feature to work."))
-    (ob-swift--eval body toolchain x-ray-this?)))
+    (if (not (string= "none" session))
+        (progn
+          (ob-swift--prepare-session session)
+          (ob-swift--eval-in-repl session body))
+      (ob-swift--eval body toolchain x-ray-this?))))
 
 (provide 'ob-swift)
 ;;; ob-swift.el ends here
