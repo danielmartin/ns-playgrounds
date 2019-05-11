@@ -48,14 +48,14 @@ toolchain that is configured on this computer will be used.")
   "Directories that can contain Swift toolchains (.xctoolchain).")
 
 (defun ob-swift-sdk-path-flag ()
-  "Prepares a SDK flag to use with the Swift compiler."
+  "Prepare a SDK flag to use with the Swift compiler."
   (format "-sdk %s" (replace-regexp-in-string
                                       "\n\\'" ""
                                       (shell-command-to-string
                                        "echo $(xcrun --show-sdk-path --sdk macosx)"))))
 
 (defun ob-swift-debug-args (temp-file)
-  "Returns a list of debug arguments to prepare the Swift
+  "Return a list of debug arguments to prepare the Swift
   compiler instrumentation."
   (append `("-frontend",
             "-c",
@@ -65,21 +65,21 @@ toolchain that is configured on this computer will be used.")
           `,(-flatten (split-string (ob-swift-sdk-path-flag)))))
 
 (defun ob-swift--toolchain-id-in-dir (dir)
-  "Returns a pair (toolchain name . toolchain ID) represented by
+  "Return a pair (toolchain name . toolchain ID) represented by
 DIR."
   `(,(file-name-base dir) ,(nth 0 (process-lines "/usr/libexec/PlistBuddy"
                                                  "-c" "Print CFBundleIdentifier:"
                                                  (format "%s/Info.plist" dir)))))
 
 (defun ob-swift--toolchain-directories ()
-  "Returns a list of Swift toolchain directories installed on
+  "Return a list of Swift toolchain directories installed on
 this computer."
   (-map (lambda (dir)
           (f-directories (expand-file-name dir)))
         ob-swift-toolchain-dirs))
 
 (defun ob-swift--collect-toolchains ()
-  "Collects all Swift toolchains installed on this computer."
+  "Collect all Swift toolchains installed on this computer."
   (-map (lambda (dir)
           ;; Skip the swift-latest.xctoolchain symbolic link.
           (unless (and
@@ -138,13 +138,13 @@ binary."
     "swift"))
 
 (defun ob-swift--toolchain-eval (body &optional toolchain)
-  "Evaluates BODY using optionally a Swift TOOLCHAIN"
+  "Evaluate BODY using optionally a Swift TOOLCHAIN"
   (let ((temp-file (org-babel-temp-file "org-babel-swift-block-" ".swift")))
     (with-temp-file temp-file (insert body))
     (org-babel-eval (format "%s %s" (ob-swift--toolchain-path toolchain) temp-file) "")))
 
 (defun ob-swift--eval (body &optional toolchain x-ray-this? debug-compiler-path)
-  "Evaluates the Swift code in BODY.
+  "Evaluate the Swift code in BODY.
 
 If TOOLCHAIN is set, uses that toolchain to execute the code.  If
 X-RAY-THIS? is set, instead of executing the code and print the
@@ -214,7 +214,7 @@ initializer sentinel, type information, etc."
 
 ;; Main entry point
 (defun org-babel-execute:swift (body params)
-  "Executes Swift code in BODY, given some PARAMS.
+  "Execute Swift code in BODY, given some PARAMS.
 
 This is the list of supported PARAMS:
 
