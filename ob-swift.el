@@ -51,18 +51,25 @@ toolchain that is configured on this computer will be used.")
   "Prepares a SDK flag to use with the Swift compiler."
   (format "-sdk %s" (replace-regexp-in-string
                                       "\n\\'" ""
-                                      (shell-command-to-string "echo $(xcrun --show-sdk-path --sdk macosx)"))))
+                                      (shell-command-to-string
+                                       "echo $(xcrun --show-sdk-path --sdk macosx)"))))
 
 (defun ob-swift-debug-args (temp-file)
   "Returns a list of debug arguments to prepare the Swift
   compiler instrumentation."
-  (append `("-frontend", "-c", temp-file, "-Xllvm", "-swift-diagnostics-assert-on-error=1") `,(-flatten (split-string (ob-swift-sdk-path-flag)))))
+  (append `("-frontend",
+            "-c",
+            temp-file,
+            "-Xllvm",
+            "-swift-diagnostics-assert-on-error=1")
+          `,(-flatten (split-string (ob-swift-sdk-path-flag)))))
 
 (defun ob-swift--toolchain-id-in-dir (dir)
   "Returns a pair (toolchain name . toolchain ID) represented by
 DIR."
   `(,(file-name-base dir) ,(nth 0 (process-lines "/usr/libexec/PlistBuddy"
-                                                 "-c" "Print CFBundleIdentifier:" (format "%s/Info.plist" dir)))))
+                                                 "-c" "Print CFBundleIdentifier:"
+                                                 (format "%s/Info.plist" dir)))))
 
 (defun ob-swift--toolchain-directories ()
   "Returns a list of Swift toolchain directories installed on
@@ -122,7 +129,9 @@ binary."
                (selected-toolchain (if (and ob-swift-prompt-if-no-toolchain (not toolchain))
                                        (cadr
                                         (assoc
-                                         (completing-read "Select the Swift toolchain that will execute this code snippet: " available-toolchains) available-toolchains))
+                                         (completing-read "Select the Swift toolchain that will execute this code snippet: "
+                                                          available-toolchains)
+                                         available-toolchains))
                                      (or (cadr (assoc toolchain available-toolchains)) "swift"))))
           (message (format "Using %s Swift toolchain..." selected-toolchain))
           (format "xcrun --toolchain %s swift" selected-toolchain)))
@@ -145,9 +154,14 @@ at the first encountered error."
       (let ((compiler-path (or debug-compiler-path ob-swift-debug-compiler-path))
             (dap-server-path dap-lldb-debug-program))
         (unless compiler-path
-          (user-error "Could not find a debug+assert Swift compiler binary. Either pass `:debug-compiler-path' <Path> in your code snippet or set the `ob-swift-debug-compiler-path' variable"))
+          (user-error "Could not find a debug+assert Swift
+          compiler binary. Either pass `:debug-compiler-path'
+          <Path> in your code snippet or set the
+          `ob-swift-debug-compiler-path' variable"))
         (unless dap-server-path
-          (user-error "Could not find a debug adapter for LLDB. Please configure the `dap-lldb-debug-program' variable to point to the LLDB debug adapter binary"))
+          (user-error "Could not find a debug adapter for
+          LLDB. Please configure the `dap-lldb-debug-program'
+          variable to point to the LLDB debug adapter binary"))
         (ob-swift--x-ray-this body (expand-file-name compiler-path) dap-server-path))
     (ob-swift--toolchain-eval body toolchain)))
 
@@ -223,7 +237,8 @@ language enthusiasts that want to understand Swift better."
       (user-error "The :toolchain flag is only supported on macOS systems."))
     (when (and x-ray-this? (or (not (featurep 'dap-mode))
                                (not (featurep 'dap-lldb))))
-      (user-error "You need to load `dap-mode' and `dap-lldb' for the x-ray-this feature to work."))
+      (user-error "You need to load `dap-mode' and `dap-lldb' for
+      the x-ray-this feature to work."))
     (if (not (string= "none" session))
         (progn
           (ob-swift--prepare-session session toolchain)
