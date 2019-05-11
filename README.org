@@ -125,7 +125,6 @@ flags are supported:
 
 ** Future Work
 
-- Add sessions support.
 - Add support for passing arbitrary compiler arguments.
 - Minor mode for documenting keywords, diagnostic messages, etc.
 - Integrate lsp-mode.
