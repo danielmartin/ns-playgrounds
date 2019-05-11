@@ -112,28 +112,27 @@ binary."
                        :name "LLDB::Run"
                        :dap-server-path ,dap-server-path))))
 
+(defun ob-swift--toolchain-path (&optional toolchain)
+  "Return the path to the Swift binary, optionally from a TOOLCHAIN."
+  ;; On macOS we can use xcrun which will configure a
+  ;; SDKROOT automatically for us.
+  (if (eq system-type 'darwin)
+      (progn
+        (let* ((available-toolchains (ob-swift--collect-toolchains))
+               (selected-toolchain (if (and ob-swift-prompt-if-no-toolchain (not toolchain))
+                                       (cadr
+                                        (assoc
+                                         (completing-read "Select the Swift toolchain that will execute this code snippet: " available-toolchains) available-toolchains))
+                                     (or (cadr (assoc toolchain available-toolchains)) "swift"))))
+          (message (format "Using %s Swift toolchain..." selected-toolchain))
+          (format "xcrun --toolchain %s swift" selected-toolchain)))
+    "swift"))
+
 (defun ob-swift--toolchain-eval (body &optional toolchain)
   "Evaluates BODY using optionally a Swift TOOLCHAIN"
   (let ((temp-file (org-babel-temp-file "org-babel-swift-block-" ".swift")))
     (with-temp-file temp-file (insert body))
-    ;; On macOS we can use xcrun which will configure a
-    ;; SDKROOT automatically for us.
-    (if (eq system-type 'darwin)
-        (progn
-          (let* ((available-toolchains (ob-swift--collect-toolchains))
-                 (selected-toolchain (if (and ob-swift-prompt-if-no-toolchain (not toolchain))
-                                         (cadr
-                                          (assoc
-                                           (completing-read "Select the Swift toolchain that will execute this code snippet: " available-toolchains) available-toolchains))
-                                       (or (cadr (assoc toolchain available-toolchains)) "swift"))))
-            (message (format "Using %s Swift toolchain..." selected-toolchain))
-            (org-babel-eval
-             (format "xcrun --toolchain %s swift %s" selected-toolchain temp-file)
-             "")))
-      (progn
-        (org-babel-eval
-         (format "swift %s" temp-file)
-         "")))))
+    (org-babel-eval (format "%s %s" (ob-swift--toolchain-path toolchain) temp-file) "")))
 
 (defun ob-swift--eval (body &optional toolchain x-ray-this? debug-compiler-path)
   "Evaluates the Swift code in BODY.
@@ -166,13 +165,18 @@ at the first encountered error."
   (while (not (string-match-p pattern ob-swift-process-output))
     (sit-for 0.5)))
 
-(defun ob-swift--prepare-session (session)
+(defun ob-swift--prepare-session (session &optional toolchain)
   "Prepare a REPL SESSION where Swift source blocks can be executed."
   (let ((name (format "*ob-swift-%s*" session)))
     (unless (and (get-process name)
                  (process-live-p (get-process name)))
-      (let ((process (with-current-buffer (get-buffer-create name)
-                       (start-process name name "swift"))))
+      (let* ((swift-command-line (split-string
+                                  (ob-swift--toolchain-path toolchain)))
+             (process (with-current-buffer (get-buffer-create
+                                            name)
+                        (apply 'start-process name name
+                               (car swift-command-line)
+                               (cdr swift-command-line)))))
         (set-process-filter process 'ob-swift--process-filter)
         (ob-swift--wait "Welcome to Apple Swift")))))
 
@@ -222,7 +226,7 @@ language enthusiasts that want to understand Swift better."
       (user-error "You need to load `dap-mode' and `dap-lldb' for the x-ray-this feature to work."))
     (if (not (string= "none" session))
         (progn
-          (ob-swift--prepare-session session)
+          (ob-swift--prepare-session session toolchain)
           (ob-swift--eval-in-repl session body))
       (ob-swift--eval body toolchain x-ray-this?))))
 
